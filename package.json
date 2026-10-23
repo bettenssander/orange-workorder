@@ -1,0 +1,11 @@
+{
+  "name": "werkbon-pv",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "python3 tests/e2e.py"
+  },
+  "devDependencies": {
+    "pdf-lib": "1.17.1"
+  }
+}

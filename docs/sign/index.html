@@ -1,0 +1,48 @@
+<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proces-verbaal oplevering</title>
+<style>body{font:16px system-ui;max-width:640px;margin:auto;padding:16px}dt{font-size:12px;color:#666;margin-top:10px}dd{margin:0;white-space:pre-wrap}textarea,input{width:100%;box-sizing:border-box;font:inherit;padding:8px}canvas{border:1px solid #888;width:100%;height:160px;touch-action:none;background:#fff}button{padding:12px 18px;font:inherit;margin-top:12px}</style>
+<h2>Proces-verbaal bij oplevering installatie</h2>
+<p id=st>Laden…</p>
+<div id=main hidden>
+<dl id=d></dl>
+<p>Hierbij verklaren de ondergetekenden dat de oplossing met toebehoren in dienst gesteld is volgens de overeengekomen vereisten.</p>
+<label>Opmerkingen van de klant (optioneel)<textarea id=opm rows=3 maxlength=1200></textarea></label>
+<label>Naam klant<input id=naam maxlength=80></label>
+<p>Handtekening klant:</p><canvas id=cv></canvas>
+<button id=clr type=button>Wissen</button> <button id=ok type=button>Ondertekenen</button>
+<p id=msg></p>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="config.js"></script>
+<script src="fill.js"></script>
+<script>
+const L={id:'ID omnitracker',onderneming:'Onderneming / Société',uitrusting:'Uitrusting / Equipement',adres:'Installatieadres / Adresse',datumIS:'Datum indienststelling / Date',voorwerp:'Voorwerp van indienststelling / Objet',opmOrange:'Opmerkingen Orange Belgium / Remarques',plaats:'Opgemaakt te / Fait à',datum:'Op / Le'};
+const id=location.hash.slice(1);let D,inked=false,drawing=false,ctx;
+(async()=>{
+ const r=id?await lookup(id):{error:'not_found'};
+ if(!r){st.textContent='Kon het document niet laden. Controleer uw verbinding en probeer opnieuw.';return}
+ if(r.error){st.textContent='Deze link is ongeldig of het document is al ondertekend.';return}
+ D=r.data;st.hidden=true;main.hidden=false;
+ for(const k in L){if(D[k]){d.innerHTML+=`<dt>${L[k]}</dt><dd></dd>`;d.lastChild.textContent=D[k]}}
+ ctx=cv.getContext('2d');cv.width=cv.clientWidth;cv.height=cv.clientHeight;ctx.lineWidth=2;ctx.lineCap='round';
+})();
+const pos=e=>{const r=cv.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]};
+cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);drawing=inked=true;ctx.beginPath();ctx.moveTo(...pos(e))};
+cv.onpointermove=e=>{if(drawing){ctx.lineTo(...pos(e));ctx.stroke()}};
+cv.onpointerup=cv.onpointerleave=()=>drawing=false;
+clr.onclick=()=>{ctx.clearRect(0,0,cv.width,cv.height);inked=false};
+ok.onclick=async()=>{
+ if(!inked||!naam.value){msg.textContent='Vul uw naam in en teken.';return}
+ ok.disabled=true;msg.textContent='Bezig…';
+ const sc=await (await fetch(cv.toDataURL('image/png'))).arrayBuffer();
+ const pdf=await buildPdf(D,opm.value,naam.value,sc,await findSignature(),ENGINEER,await fetchBytes('template.pdf'));
+ const name=`PV_${D.id}_${D.onderneming}.pdf`.replace(/[^\w.-]/g,'_');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([pdf],{type:'application/pdf'}));a.download=name;a.click();
+ let b64='';for(let i=0;i<pdf.length;i+=8192)b64+=String.fromCharCode(...pdf.subarray(i,i+8192));
+ msg.textContent='PDF gedownload. Bezig met versturen…';
+ try{await fetch(MAIL_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({id,pdf:btoa(b64),filename:name,klant:D.onderneming})})}catch(e){}
+ // bevestiging: het script wist het PV zodra de mail verstuurd is
+ for(let i=0;i<POLLS;i++){const r=await lookup(id);if(r&&r.error==='not_found'){msg.textContent='Ondertekend. De PDF is gedownload en verstuurd.';return}await sleep(POLL_MS)}
+ msg.textContent='PDF gedownload, maar het versturen kon niet bevestigd worden. Probeer opnieuw.';ok.disabled=false;
+};
+</script>

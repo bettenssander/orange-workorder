@@ -1,0 +1,40 @@
+<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PV aanmaken</title>
+<style>body{font:16px system-ui;max-width:640px;margin:auto;padding:16px}label{display:block;font-size:13px;color:#555;margin-top:12px}input,textarea{width:100%;box-sizing:border-box;font:inherit;padding:8px}button{padding:12px 18px;font:inherit;margin-top:16px}#out{margin-top:16px;word-break:break-all}.warn{background:#fee;border:1px solid #c00;padding:8px;margin:8px 0}</style>
+<h2>Proces-verbaal aanmaken</h2>
+<div id=warn class=warn hidden>Handtekening niet gevonden: zet <b>handtekening.png</b> in de map <b>docs/sign/</b>. Zonder staat ze niet op het PV.</div>
+<form id=f>
+<label>ID omnitracker<input name=id required maxlength=60></label>
+<label>Onderneming<input name=onderneming required maxlength=100></label>
+<label>Uitrusting<input name=uitrusting required maxlength=150></label>
+<label>Installatieadres<textarea name=adres rows=2 required maxlength=200></textarea></label>
+<label>Datum indienststelling<input type=date name=datumIS required></label>
+<label>Voorwerp van indienststelling<textarea name=voorwerp rows=3 required maxlength=1200></textarea></label>
+<label>Opmerkingen Orange Belgium<textarea name=opmOrange rows=3 maxlength=1200></textarea></label>
+<label>Opgemaakt te<input name=plaats required maxlength=60></label>
+<label>Opgemaakt op<input type=date name=datum required></label>
+<label>Beheerssleutel (ADMIN_KEY van het script; wordt onthouden in deze browser)<input id=sleutel type=password required></label>
+<button id=btn>Maak klantlink</button></form>
+<div id=out></div>
+<script src="sign/config.js"></script>
+<script src="sign/fill.js"></script>
+<script>
+try{sleutel.value=localStorage.getItem('pvkey')||''}catch(e){}
+document.querySelector('[name=datum]').valueAsDate=new Date();
+findSignature().then(b=>{if(!b)warn.hidden=false});
+const newId=()=>[...crypto.getRandomValues(new Uint8Array(10))].map(x=>'abcdefghjkmnpqrstuvwxyz23456789'[x%31]).join('');
+f.onsubmit=async e=>{e.preventDefault();btn.disabled=true;out.textContent='Bezig…';
+ const data=Object.fromEntries(new FormData(f)),id=newId();
+ try{localStorage.setItem('pvkey',sleutel.value)}catch(e){}
+ let j=null;
+ try{j=await (await fetch(MAIL_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action:'save',key:sleutel.value,id,data})})).json()}catch(e){}
+ const fouten={bad_key:'Verkeerde beheerssleutel.',too_long:'Te veel tekst.',bad_id:'Ongeldige id.'};
+ if(j&&j.error){out.textContent=fouten[j.error]||'Fout: '+j.error;btn.disabled=false;return}
+ let ok=false;
+ for(let i=0;i<POLLS&&!ok;i++){const r=await lookup(id);if(r&&r.data)ok=true;else await sleep(POLL_MS)}
+ btn.disabled=false;
+ if(!ok){out.textContent='Opslaan kon niet bevestigd worden. Controleer MAIL_URL en of het script online staat.';return}
+ const url=new URL('sign/',location.href).href+'#'+id;
+ out.innerHTML='<b>Link voor de klant:</b><br><a href="'+url+'">'+url+'</a><br><button id=c type=button>Kopieer</button>';
+ c.onclick=()=>navigator.clipboard.writeText(url);};
+</script>
