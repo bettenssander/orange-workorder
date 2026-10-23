@@ -2,7 +2,7 @@
 // Script properties (Project Settings): ADMIN_KEY = zelfgekozen wachtwoord voor het aanmaakformulier.
 // Het script bewaart elk PV onder een korte id (link = /sign/#id), mailt de ondertekende PDF naar TO
 // en wist het PV daarna (link is dus eenmalig). Records ouder dan 30 dagen worden opgeruimd.
-const TO = 'ontvanger@voorbeeld.be'; // <-- pas aan: hierheen gaat elk getekend PV
+const TO = 'sander.bettens@orange.com'; // <-- pas aan: hierheen gaat elk getekend PV
 const MAX_PER_DAY = 30, KEEP_DAYS = 30;
 const P = () => PropertiesService.getScriptProperties();
 const out = o => ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
